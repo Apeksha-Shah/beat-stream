@@ -1,7 +1,15 @@
+import 'package:beat_stream/screens/setting_screen.dart';
+import 'package:beat_stream/screens/search.dart';
+
 import 'package:flutter/material.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,7 +31,9 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context)=> SettingScreen()));
+              },
               icon: Icon(
                 Icons.settings,
                 color: Colors.white, // White icon color
@@ -197,7 +207,10 @@ class HomeScreen extends StatelessWidget {
             ),
             Expanded(
               child: IconButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context)=> Search()));
+
+                },
                 icon: Icon(
                   Icons.search,
                   size: 30,
