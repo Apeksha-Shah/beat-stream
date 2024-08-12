@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             IconButton(
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context)=> SettingScreen()));
+                Navigator.pushNamed(context,'/setting');
               },
               icon: Icon(
                 Icons.settings,
@@ -208,8 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: IconButton(
                 onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context)=> Search()));
-
+                  Navigator.pushNamed(context, '/search');
                 },
                 icon: Icon(
                   Icons.search,

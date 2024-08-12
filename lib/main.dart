@@ -1,3 +1,5 @@
+import 'package:beat_stream/screens/search.dart';
+import 'package:beat_stream/screens/setting_screen.dart';
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
@@ -16,7 +18,12 @@ class App extends StatelessWidget {
             ),
           )
         ),
-        home: HomeScreen()
+        initialRoute: '/',
+        routes: {
+           '/':(context)=>HomeScreen(),
+           '/setting':(context) => SettingScreen(),
+           '/search':(context) => Search()
+        },
     );
   }
 }
