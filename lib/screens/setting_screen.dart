@@ -19,7 +19,7 @@ class _SettingScreenState extends State<SettingScreen> {
          )),
        ),
       body: Center(
-         child: Text('Setting screen',
+         child: Text('Body of setting page',
          style: TextStyle(
            color: Colors.white,     // Deep dark blue
          ),
