@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/secrets.dart';
 
 class ApiService {
   static Future<String> getAccessToken() async {
-    var clientId = 'bc66efb4cc144388849e2036b46271c2';
-    var clientSecret = '668088b64c9b4298a0a5b3b9c9774850';
-    var credentials = '$clientId:$clientSecret';
+    var credentials = '${Secrets.clientId}:${Secrets.clientSecret}';
     var base64Credentials = base64Encode(utf8.encode(credentials));
 
     var response = await http.post(
