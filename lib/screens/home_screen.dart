@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:beat_stream/screens/song_carousel.dart';
+import 'package:beat_stream/models/song.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -46,9 +48,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       backgroundColor: Color(0xFF001A2D), // Very dark blue, almost black
-      body: Column(
-        children: List.generate(
-          (songs.length / 2).ceil(),
+      body:SingleChildScrollView(
+        child:Column(
+          children: [
+          Column(
+            children: List.generate(
+            (songs.length / 2).ceil(),
               (index) {
             int startIndex = index * 2;
             int endIndex = (startIndex + 2) > songs.length ? songs.length : startIndex + 2;
@@ -97,6 +102,11 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
+            SizedBox(height: 40), // Add space between the list and the carousel
+            SongCarousel(songs: songs, title: 'Top Mixes'),   // Carousel
+        ],
+        ),
+      ),
       bottomNavigationBar: BottomAppBar(
         color: Color(0xFF001A2D), // Very dark blue, almost black
         child: Row(
@@ -130,9 +140,4 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class Song {
-  final String imagePath;
-  final String title;
 
-  Song({required this.imagePath, required this.title});
-}
