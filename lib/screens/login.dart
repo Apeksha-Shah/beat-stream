@@ -7,8 +7,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  String? _email;
-  String? _password;
+  // String? _email;
+  // String? _password;
 
   @override
   Widget build(BuildContext context) {
