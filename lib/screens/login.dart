@@ -91,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
                       _formKey.currentState!.save();
+                      Navigator.pushNamed(context, '/');
                       // Perform login action
                     }
                   },
