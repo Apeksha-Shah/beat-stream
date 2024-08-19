@@ -1,3 +1,5 @@
+import 'package:beat_stream/screens/login.dart';
+import 'package:beat_stream/screens/registration.dart';
 import 'package:beat_stream/screens/search.dart';
 import 'package:beat_stream/screens/setting_screen.dart';
 import 'package:flutter/material.dart';
@@ -19,11 +21,13 @@ class App extends StatelessWidget {
             ),
           )
         ),
-        initialRoute: '/',
+        initialRoute: '/login',
         routes: {
            '/':(context)=>HomeScreen(),
            '/setting':(context) => SettingScreen(),
-           '/search':(context) => Search()
+           '/search':(context) => Search(),
+           '/login':(context)=> LoginScreen(),
+           '/register':(context) => RegisterScreen()
         },
     );
   }
