@@ -2,10 +2,13 @@ import 'package:beat_stream/screens/login.dart';
 import 'package:beat_stream/screens/registration.dart';
 import 'package:beat_stream/screens/search.dart';
 import 'package:beat_stream/screens/setting_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(App());
 }
 

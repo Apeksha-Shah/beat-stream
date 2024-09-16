@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Color(0xFF001A2D), // Deep dark blue
         title: Row(
           children: <Widget>[
@@ -47,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+
       backgroundColor: Color(0xFF001A2D), // Very dark blue, almost black
       body:SingleChildScrollView(
         child:Column(

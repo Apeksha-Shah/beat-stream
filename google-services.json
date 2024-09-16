@@ -1,0 +1,33 @@
+{
+  "project_info": {
+    "project_number": "221985584807",
+    "project_id": "beatstream-3d5a7",
+    "storage_bucket": "beatstream-3d5a7.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:221985584807:android:a2443778bf5a638d590d82",
+        "android_client_info": {
+          "package_name": "com.example.beat_stream"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXT5FubNLy-aGUe-YcMS-3e65aP4J6pm8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        },
+        "firebase_messaging": {
+          "status": "ENABLED",
+          "messagingSenderId": "221985584807"
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -31,6 +31,18 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Flutter build artifacts
+android/app/build/
+
+# Flutter intermediate files
+**/flutter_assets/
+**/isolate_snapshot_data
+**/kernel_blob.bin
+**/vm_snapshot_data
+**/compatible_screen_manifest/
+**/compile_and_runtime_not_namespaced_r_class_jar/
+
+
 # Symbolication related
 app.*.symbols
 
@@ -41,4 +53,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/app/build/kotlin/
+/android/app/google-services.json
 lib/config/secrets.dart

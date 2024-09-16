@@ -1,3 +1,5 @@
+import 'package:beat_stream/services/authservice.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -6,6 +8,53 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+
+  final FirebaseAuthService _auth =  FirebaseAuthService();
+
+  TextEditingController _usernameController = TextEditingController();
+  TextEditingController _emailController = TextEditingController();
+  TextEditingController _passwordController = TextEditingController();
+
+  bool _signup = false;
+
+  void _signUp() async {
+    String username = _usernameController.text;
+    String email = _emailController.text;
+    String password = _passwordController.text;
+
+    setState(() {
+      _signup = true;
+    });
+
+    User? user = await _auth.signUpWithEmailAndPassword(email, password);
+
+    setState(() {
+      _signup = false;
+    });
+
+    if (user != null) {
+      // Clear form fields
+      _usernameController.clear();
+      _emailController.clear();
+      _passwordController.clear();
+
+      // Navigate to login screen, replacing current route
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
+      print('An error occurred during registration');
+    }
+  }
+
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   final _formKey = GlobalKey<FormState>();
   String? _name;
   String? _email;
@@ -21,13 +70,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         backgroundColor: Color(0xFF001A2D), // Deep dark blue
         centerTitle: true,
+        automaticallyImplyLeading: false,
       ),
       body: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            // crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Center(
                 child: Text(
@@ -40,6 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               TextFormField(
+                controller: _usernameController,
                 decoration: InputDecoration(
                   labelText: 'Name',
                   labelStyle: TextStyle(color: Colors.white),
@@ -63,6 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 16.0),
               TextFormField(
+                controller: _emailController,
                 decoration: InputDecoration(
                   labelText: 'Email',
                   labelStyle: TextStyle(color: Colors.white),
@@ -86,6 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 16.0),
               TextFormField(
+                controller: _passwordController,
                 decoration: InputDecoration(
                   labelText: 'Password',
                   labelStyle: TextStyle(color: Colors.white),
@@ -115,12 +169,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (_formKey.currentState!.validate()) {
                       _formKey.currentState!.save();
                       // Perform registration action
+                      _signUp();
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Color(0xFF001A2D), // Deep dark blue
                   ),
-                  child: Text('Register'),
+                  child: _signup ? CircularProgressIndicator(color: Colors.white,) : Text('Register'),
                 ),
               ),
               Center(
