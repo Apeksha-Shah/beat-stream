@@ -4,10 +4,10 @@ import 'package:beat_stream/screens/widgets/MusicPlayerWidget.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:on_audio_query/on_audio_query.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../provider/song_model_provider.dart';
+import '../../models/FireStoreSongModel.dart';
 
 class Allsongs extends StatefulWidget {
   const Allsongs({super.key});
@@ -17,25 +17,24 @@ class Allsongs extends StatefulWidget {
 }
 
 class _AllsongsState extends State<Allsongs> {
-  final OnAudioQuery _audioQuery = OnAudioQuery();
-  List<SongModel>? songs; // State variable to hold the list of songs
-  int _currentSongIndex = 0; // Variable to track the current song index
+  List<FirestoreSongModel> songs = [];
+  int _currentSongIndex = -1; // Start from -1 to handle no selection scenario
 
   @override
   void initState() {
     super.initState();
-    _requestPermission();
-    _currentSongIndex = audioPlayer.androidAudioSessionId ?? 0;
+    _fetchSongsFromFirestore();
   }
 
-  Future<void> _requestPermission() async {
-    if (!await Permission.storage.request().isGranted) {
-      setState(() {});
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Storage permission denied')),
-      );
-    }
+  Future<void> _fetchSongsFromFirestore() async {
+    final QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('songs').get();
+    final List<FirestoreSongModel> fetchedSongs = snapshot.docs
+        .map((doc) => FirestoreSongModel.fromDocument(doc))
+        .toList();
+
+    setState(() {
+      songs = fetchedSongs;
+    });
   }
 
   @override
@@ -44,7 +43,7 @@ class _AllsongsState extends State<Allsongs> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF001A2D),
         title: const Text(
-          "Local Music Directory",
+          "Music Directory",
           style: TextStyle(color: Colors.white),
         ),
         actions: [
@@ -64,76 +63,51 @@ class _AllsongsState extends State<Allsongs> {
         child: Column(
           children: [
             Expanded(
-              child: FutureBuilder<List<SongModel>>(
-                future: _audioQuery.querySongs(
-                  sortType: null,
-                  orderType: OrderType.ASC_OR_SMALLER,
-                  uriType: UriType.EXTERNAL,
-                  ignoreCase: true,
+              child: songs.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                itemCount: songs.length,
+                itemBuilder: (context, index) => ListTile(
+                  leading: const Icon(Icons.music_note, color: Colors.white),
+                  // Inside your Allsongs class
+                  onTap: () {
+                    // Set the current song in the provider
+                    context.read<SongModelProvider>().setCurrentSong(songs[index]);
+
+                    // Update the current song index
+                    setState(() {
+                      _currentSongIndex = index;
+                    });
+
+                    // Play the song immediately without waiting for the play button
+                    _playCurrentSong();
+
+                    // Navigate to the Audioplayerscreenstate if needed
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Audioplayerscreenstate(
+                          songModel: songs[index],
+                          audioPlayer: audioPlayer,
+                          songList: songs,
+                          currentIndex: index,
+                        ),
+                      ),
+                    );
+                  },
+                  title: Text(
+                    songs[index].title,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    '${songs[index].artist}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  trailing: const Icon(
+                    Icons.more_horiz,
+                    color: Colors.white,
+                  ),
                 ),
-                builder: (context, item) {
-                  if (item.data == null) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-                  if (item.data!.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        "No song found",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    );
-                  }
-
-                  // Save the fetched songs to the state variable
-                  songs = item.data;
-
-                  // Reset current song index if it exceeds the number of songs
-                  if (_currentSongIndex >= songs!.length) {
-                    _currentSongIndex = 0;
-                  }
-
-                  return ListView.builder(
-                    itemCount: songs!.length,
-                    itemBuilder: (context, index) => ListTile(
-                      leading: QueryArtworkWidget(
-                        id: songs![index].id,
-                        type: ArtworkType.AUDIO,
-                        nullArtworkWidget: const Icon(Icons.music_note),
-                      ),
-                      onTap: () {
-                        context.read<SongModelProvider>().setCurrentSong(songs![index]); // Set current song
-                        setState(() {
-                          _currentSongIndex = index; // Update current song index
-                        });
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => Audioplayerscreenstate(
-                              songModel: songs![index],
-                              audioPlayer: audioPlayer,
-                              songList: songs!,
-                              currentIndex: index,
-                            ),
-                          ),
-                        );
-                      },
-                      title: Text(
-                        songs![index].displayNameWOExt,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      subtitle: Text(
-                        songs![index].artist ?? "Unknown Artist",
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      trailing: const Icon(
-                        Icons.more_horiz,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
-                },
               ),
             ),
             SafeArea(
@@ -141,27 +115,35 @@ class _AllsongsState extends State<Allsongs> {
                 height: 130,
                 child: BottomAppBar(
                   color: const Color(0xFF001A2D),
-                  child: songs != null && songs!.isNotEmpty && _currentSongIndex !=0 && audioPlayer.androidAudioSessionId != 0
+                  child: songs.isNotEmpty && _currentSongIndex != -1
                       ? StreamBuilder<Duration?>(
-                    stream: audioPlayer.positionStream, // Listen to the player's position
+                    stream: audioPlayer.positionStream,
                     builder: (context, snapshot) {
                       final position = snapshot.data ?? Duration.zero;
                       final songDuration = audioPlayer.duration ?? Duration.zero;
 
                       return MusicPlayerWidget(
-                        currentSong: context.read<SongModelProvider>().getCurrentSong(),
+                        currentSong: context.read<SongModelProvider>().getCurrentSong() ?? FirestoreSongModel(
+                          id: '', // Default or placeholder ID
+                          url: '',
+                          title: 'Unknown Song',
+                          artist: 'Unknown Artist',
+                          album: 'Unknown Album',
+                          genre: 'Unknown Genre', // Default or placeholder genre
+                          releaseDate: DateTime.now(), // Default or placeholder release date
+                        ),
                         onNext: _nextSong,
                         onPrevious: _previousSong,
-                        songPosition: position, // Pass the current song position to the widget
-                        songDuration: songDuration, // Pass the song duration to the widget
+                        songPosition: position,
+                        songDuration: songDuration,
                       );
+
                     },
                   )
                       : const SizedBox.shrink(),
                 ),
               ),
             ),
-
           ],
         ),
       ),
@@ -169,47 +151,47 @@ class _AllsongsState extends State<Allsongs> {
   }
 
   void _nextSong() {
-    if (songs != null && _currentSongIndex < songs!.length - 1) {
+    if (_currentSongIndex < songs.length - 1) {
       setState(() {
         _currentSongIndex++;
       });
-      context.read<SongModelProvider>().setCurrentSong(songs![_currentSongIndex]); // Track the current song
+      context.read<SongModelProvider>().setCurrentSong(songs[_currentSongIndex]);
       _playCurrentSong();
     }
   }
 
   void _previousSong() {
-    if (songs != null && _currentSongIndex > 0) {
+    if (_currentSongIndex > 0) {
       setState(() {
         _currentSongIndex--;
       });
-      context.read<SongModelProvider>().setCurrentSong(songs![_currentSongIndex]); // Track the current song
+      context.read<SongModelProvider>().setCurrentSong(songs[_currentSongIndex]);
       _playCurrentSong();
     }
   }
-  void _playCurrentSong() async {
-    final song = songs![_currentSongIndex];
 
-    // Create a MediaItem with the song's metadata
+  void _playCurrentSong() async {
+    final song = songs[_currentSongIndex];
+
+    // Get actual duration before setting the audio source
+    final duration = await audioPlayer.setUrl(song.url);
+
     final mediaItem = MediaItem(
-      id: song.uri!, // Use the song's URI as the ID
-      album: song.album ?? "Unknown Album",
-      title: song.displayNameWOExt, // Song title without extension
-      artist: song.artist ?? "Unknown Artist",
-      duration: Duration(milliseconds: song.duration ?? 0), // Duration of the song
-      artUri: Uri.parse(song.uri!), // You can adjust this if you have artwork
+      id: song.url, // Ensure this matches your song model's unique ID
+      album: song.album,
+      title: song.title,
+      artist: song.artist,
+      duration: duration ?? Duration.zero, // Use fetched duration
+      artUri: Uri.parse(song.url), // Placeholder or actual artwork URL
     );
 
-    // Set the audio source with the media item as a tag
     await audioPlayer.setAudioSource(
       AudioSource.uri(
-        Uri.parse(song.uri!), // Song URI
-        tag: mediaItem, // MediaItem with metadata
+        Uri.parse(song.url),
+        tag: mediaItem,
       ),
     );
 
-    // Play the song
     await audioPlayer.play();
   }
-
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:on_audio_query_platform_interface/src/models/song_model.dart';
+import 'package:beat_stream/models/FireStoreSongModel.dart'; // Adjust the import as necessary
 
 class SongModelProvider with ChangeNotifier {
   int _id = 0;
@@ -10,14 +10,19 @@ class SongModelProvider with ChangeNotifier {
     _id = id;
     notifyListeners();
   }
-  SongModel? _currentSong;
 
-  void setCurrentSong(SongModel song) {
+  FirestoreSongModel? _currentSong;
+
+  void setCurrentSong(FirestoreSongModel song) {
     _currentSong = song;
     notifyListeners();
   }
 
-  SongModel getCurrentSong() {
-    return _currentSong!;
+  FirestoreSongModel? getCurrentSong() {
+    return _currentSong;  // Do not force unwrap (!). It might return null.
+  }
+
+  bool hasCurrentSong() {
+    return _currentSong != null;  // Check if there's a current song
   }
 }

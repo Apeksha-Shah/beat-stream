@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue/flutter_blue.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:on_audio_query/on_audio_query.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:beat_stream/global/audio_player_singleton.dart';
 import 'package:provider/provider.dart';
 import '../../controller/MusicPlayerControls.dart';
 import '../../provider/song_model_provider.dart';
+import '../../models/FireStoreSongModel.dart';
 
 class Audioplayerscreenstate extends StatefulWidget {
   const Audioplayerscreenstate({
@@ -22,9 +22,9 @@ class Audioplayerscreenstate extends StatefulWidget {
     required this.currentIndex,
   });
 
-  final SongModel songModel;
+  final FirestoreSongModel songModel;  // Updated type
   final AudioPlayer audioPlayer;
-  final List<SongModel> songList;
+  final List<FirestoreSongModel> songList;  // Updated type
   final int currentIndex;
 
   @override
@@ -37,8 +37,6 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
   Duration _songDuration = Duration.zero;
   int _currentSongIndex = 0;
   final FlutterBlue flutterBlue = FlutterBlue.instance;
-
-  // Track if the widget is mounted before calling setState
   bool _isMounted = false;
 
   @override
@@ -48,50 +46,32 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
     _isMounted = true;
     _currentSongIndex = widget.currentIndex;
     playSong(widget.songList[_currentSongIndex]);
-    listenForDeviceChanges(); // Start listening for device changes
-    monitorAudioFocus(); // Monitor headphone/Bluetooth events
-    scanBluetoothDevices(); // Scan for Bluetooth devices
+    listenForDeviceChanges();
+    monitorAudioFocus();
+    scanBluetoothDevices();
   }
 
   @override
   void dispose() {
-    flutterBlue.stopScan(); // Stop Bluetooth scanning when screen is disposed
+    flutterBlue.stopScan();
     _isMounted = false;
     super.dispose();
   }
 
   void listenForDeviceChanges() {
-    audioPlayer.playerStateStream.listen((state) {
+    widget.audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.ready && _isMounted) {
         print('Audio is ready');
       }
 
       if (state.processingState == ProcessingState.completed && _isMounted) {
-        // When the song is completed, play the next song
         _nextSong();
       }
     });
   }
 
-  void listenForBluetoothState() {
-    flutterBlue.state.listen((state) {
-      if (state == BluetoothState.off) {
-        // Handle when Bluetooth is turned off
-        if (_isMounted) {
-          setState(() {
-            _isPlaying = false;
-          });
-          audioPlayer.pause();
-          showToast(message: 'Bluetooth disconnected.');
-        }
-      }
-    });
-  }
-
-  // Detect if headphones are connected or Bluetooth controls
   void monitorAudioFocus() {
-    audioPlayer.playerStateStream.listen((event) {
-      // Check if the device was unmounted (e.g., headphones or Bluetooth disconnected)
+    widget.audioPlayer.playerStateStream.listen((event) {
       if (event.processingState == ProcessingState.idle && _isMounted) {
         setState(() {
           _isPlaying = false;
@@ -104,7 +84,6 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
   void scanBluetoothDevices() async {
     try {
       await flutterBlue.startScan(timeout: const Duration(seconds: 4));
-
       flutterBlue.scanResults.listen((results) {
         for (ScanResult r in results) {
           print('Found device: ${r.device.name}');
@@ -118,36 +97,33 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
   Future<void> requestPermissions() async {
     var status = await Permission.storage.status;
 
-    if (!status.isDenied) {
-      bool isOpened = await openAppSettings();
-      if (!isOpened) {
-        print('Failed to open app settings');
-      }
-    } else if (!status.isGranted) {
+    if (!status.isGranted) {
       await Permission.storage.request();
     }
     await [
       Permission.bluetooth,
-      Permission.location, // Required for scanning
+      Permission.location,
     ].request();
   }
 
-  void playSong(SongModel songModel) async {
+  void playSong(FirestoreSongModel songModel) async {
     try {
-      await audioPlayer.setAudioSource(
+      await widget.audioPlayer.setAudioSource(
         AudioSource.uri(
-          Uri.parse(songModel.uri!),
+          Uri.parse(songModel.url),  // Updated
           tag: MediaItem(
-            id: '${widget.songModel.id}',
-            album: '${widget.songModel.album}',
-            title: '${widget.songModel.title}',
+            id: songModel.id,  // Updated
+            album: songModel.album,  // Updated
+            title: songModel.title,  // Updated
             artUri: Uri.parse(
-                'https://static.vecteezy.com/system/resources/previews/029/650/250/large_2x/music-graffiti-wallpaper-graffiti-background-music-graffiti-pattern-music-graffiti-background-music-graffiti-art-music-graffiti-paint-ai-generative-photo.jpg'),
+              'https://static.vecteezy.com/system/resources/previews/029/650/250/large_2x/music-graffiti-wallpaper-graffiti-background-music-graffiti-pattern-music-graffiti-background-music-graffiti-art-music-graffiti-paint-ai-generative-photo.jpg',
+            ),
           ),
         ),
       );
-      context.read<SongModelProvider>().setId(songModel.id);
-      audioPlayer.play();
+
+      context.read<SongModelProvider>().setId(songModel.id as int);
+      widget.audioPlayer.play();
       setState(() {
         _isPlaying = true;
       });
@@ -159,13 +135,7 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
           });
         }
       });
-      audioPlayer.positionStream.listen((position) {
-        if (_isMounted) {
-          setState(() {
-            _currentPosition = position;
-          });
-        }
-      });
+
       widget.audioPlayer.durationStream.listen((duration) {
         if (_isMounted) {
           setState(() {
@@ -173,31 +143,8 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
           });
         }
       });
-      audioPlayer.durationStream.listen((duration) {
-        if (_isMounted) {
-          setState(() {
-            _songDuration = duration ?? Duration.zero;
-          });
-        }
-      });
-    } on Exception {
-      log("Cannot find the song");
-    }
-  }
-
-  void _skipForward() {
-    final newPosition = _currentPosition + const Duration(seconds: 10);
-    if (newPosition < _songDuration) {
-      widget.audioPlayer.seek(newPosition);
-    }
-  }
-
-  void _skipBackward() {
-    final newPosition = _currentPosition - const Duration(seconds: 10);
-    if (newPosition >= Duration.zero) {
-      widget.audioPlayer.seek(newPosition);
-    } else {
-      widget.audioPlayer.seek(Duration.zero);
+    } catch (e) {
+      log("Cannot find the song: $e");
     }
   }
 
@@ -215,7 +162,7 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
       _currentSongIndex--;
       playSong(widget.songList[_currentSongIndex]);
     } else {
-      log("This is the first song.");
+      log("No previous songs to play.");
     }
   }
 
@@ -244,13 +191,13 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                   },
                   icon: const Icon(Icons.arrow_back_ios),
                 ),
-                const SizedBox(height: 40.0), // Reduced from 70 to 40
+                const SizedBox(height: 40.0),
                 Column(
                   children: [
                     const ArtWorkWidget(),
-                    const SizedBox(height: 50.0), // Reduced from 100 to 50
+                    const SizedBox(height: 50.0),
                     Text(
-                      widget.songList[_currentSongIndex].displayNameWOExt,
+                      widget.songList[_currentSongIndex].title,  // Updated
                       overflow: TextOverflow.fade,
                       maxLines: 1,
                       style: const TextStyle(
@@ -260,7 +207,7 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                     ),
                     const SizedBox(height: 10.0),
                     Text(
-                      widget.songList[_currentSongIndex].artist ?? "Unknown Artist",
+                      widget.songList[_currentSongIndex].artist,  // Updated
                       overflow: TextOverflow.fade,
                       maxLines: 1,
                       style: const TextStyle(
@@ -268,7 +215,7 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                         fontSize: 18.0,
                       ),
                     ),
-                    const SizedBox(height: 30.0), // Reduced spacing here
+                    const SizedBox(height: 30.0),
                     Row(
                       children: [
                         Text(
@@ -283,7 +230,6 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                             onChanged: (value) {
                               setState(() {
                                 widget.audioPlayer.seek(Duration(seconds: value.toInt()));
-                                audioPlayer.seek(Duration(seconds: value.toInt()));
                               });
                             },
                             activeColor: Colors.green,
@@ -296,17 +242,20 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20.0), // Reduced spacing between slider and buttons
+                    const SizedBox(height: 20.0),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         IconButton(
-                          onPressed: _skipBackward,
-                          icon: const Icon(Icons.replay_10, color: Colors.white, size: 40),
+                          onPressed: _previousSong,  // Handle previous song
+                          icon: const Icon(Icons.skip_previous, color: Colors.white, size: 40),
                         ),
                         IconButton(
-                          onPressed: _previousSong,
-                          icon: const Icon(Icons.skip_previous, color: Colors.white, size: 40),
+                          onPressed: () {
+                            final newPosition = _currentPosition - const Duration(seconds: 10);
+                            widget.audioPlayer.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
+                          },
+                          icon: const Icon(Icons.replay_10, color: Colors.white, size: 40),
                         ),
                         CircleAvatar(
                           radius: 30.0,
@@ -316,10 +265,8 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                               setState(() {
                                 if (_isPlaying) {
                                   widget.audioPlayer.pause();
-                                  audioPlayer.pause();
                                 } else {
                                   widget.audioPlayer.play();
-                                  audioPlayer.play();
                                 }
                                 _isPlaying = !_isPlaying;
                               });
@@ -327,17 +274,19 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                             icon: Icon(
                               _isPlaying ? Icons.pause : Icons.play_arrow,
                               color: Colors.white,
-                              size: 40.0,
                             ),
                           ),
                         ),
                         IconButton(
-                          onPressed: _nextSong,
-                          icon: const Icon(Icons.skip_next, color: Colors.white, size: 40),
+                          onPressed: () {
+                            final newPosition = _currentPosition + const Duration(seconds: 10);
+                            widget.audioPlayer.seek(newPosition > _songDuration ? _songDuration : newPosition);
+                          },
+                          icon: const Icon(Icons.forward_10, color: Colors.white, size: 40),
                         ),
                         IconButton(
-                          onPressed: _skipForward,
-                          icon: const Icon(Icons.forward_10, color: Colors.white, size: 40),
+                          onPressed: _nextSong,  // Handle next song
+                          icon: const Icon(Icons.skip_next, color: Colors.white, size: 40),
                         ),
                       ],
                     ),

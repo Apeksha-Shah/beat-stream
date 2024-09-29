@@ -4,8 +4,11 @@ import 'package:on_audio_query/on_audio_query.dart';
 
 import '../../controller/MusicPlayerControls.dart';
 import '../../global/audio_player_singleton.dart';
+import '../../models/FireStoreSongModel.dart';
+
+
 class MusicPlayerWidget extends StatelessWidget {
-  final SongModel currentSong;
+  final FirestoreSongModel currentSong; // Updated to FirestoreSongModel
   final VoidCallback onNext;
   final VoidCallback onPrevious;
   final Duration songPosition;
@@ -28,7 +31,7 @@ class MusicPlayerWidget extends StatelessWidget {
         children: [
           // Album Art
           QueryArtworkWidget(
-            id: currentSong.id,
+            id: int.tryParse(currentSong.id) ?? 0, // Assuming the id is the Firestore ID
             type: ArtworkType.AUDIO,
             nullArtworkWidget: const CircleAvatar(
               radius: 30,
@@ -41,7 +44,7 @@ class MusicPlayerWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  currentSong.displayNameWOExt,
+                  currentSong.title,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -76,8 +79,8 @@ class MusicPlayerWidget extends StatelessWidget {
                     audioPlayer.play();
                   }
                 },
-                onSkipNext: onNext, // Call the next function
-                onSkipPrevious: onPrevious, // Call the previous function
+                onSkipNext: onNext,
+                onSkipPrevious: onPrevious,
                 onSliderChanged: (value) {
                   audioPlayer.seek(Duration(seconds: value.toInt()));
                 },

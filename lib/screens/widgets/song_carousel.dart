@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:beat_stream/screens/widgets/AudioPlayerScreenState.dart';
-
-import 'AudioPlayerScreenState.dart';
-
+import '../../models/FireStoreSongModel.dart';
 
 class SongCarousel extends StatefulWidget {
-  final List<SongModel> songs; // Use SongModel from on_audio_query package
+  final List<FirestoreSongModel> songs; // Updated type
   final String title;
 
   SongCarousel({required this.songs, required this.title});
@@ -39,7 +37,6 @@ class _SongCarouselState extends State<SongCarousel> {
           height: 150, // Adjust height as needed
           color: Color(0xFF002B40).withOpacity(0.8), // Dark blue with transparency
           child: ListView.builder(
-
             scrollDirection: Axis.horizontal,
             itemCount: widget.songs.length,
             itemBuilder: (context, index) {
@@ -50,11 +47,10 @@ class _SongCarouselState extends State<SongCarousel> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => Audioplayerscreenstate(
-                        songModel: song,
+                        songModel: song, // Updated type
                         audioPlayer: AudioPlayer(),
-                        songList: widget.songs,
+                        songList: widget.songs, // Pass the same list
                         currentIndex: index,
-
                       ),
                     ),
                   );
@@ -66,15 +62,16 @@ class _SongCarouselState extends State<SongCarousel> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8.0),
-                        child: QueryArtworkWidget(                    //ArtWorkWidget()
+                        child: QueryArtworkWidget(
                           // Display album artwork using QueryArtworkWidget
-                          id: song.id,
+                          id: int.tryParse(song.id) ?? 0, // Assuming song.id is still valid
                           type: ArtworkType.AUDIO,
-                          nullArtworkWidget: Icon(
-                            Icons.music_note,
-                            size: 110,
-                            color: Colors.white70,
-                          ),
+                          nullArtworkWidget: Image.network(
+                            'https://via.placeholder.com/150', // Fallback/default image URL
+                            width: 120,
+                            height: 120,
+                            fit: BoxFit.cover,
+                          ), // Use Image.network as a fallback image
                           artworkFit: BoxFit.cover,
                           artworkBorder: BorderRadius.circular(8.0),
                           artworkWidth: 120,
@@ -83,7 +80,7 @@ class _SongCarouselState extends State<SongCarousel> {
                       ),
                       SizedBox(height: 8.0),
                       Text(
-                        song.title, // Use song.title from SongModel
+                        song.title, // Use song.title from FirestoreSongModel
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.white,
