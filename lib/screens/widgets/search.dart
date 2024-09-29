@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:beat_stream/apis/song_api.dart';
 import 'dart:math';
+import 'package:url_launcher/url_launcher.dart';
+
 
 class Search extends StatefulWidget {
   @override
@@ -12,7 +14,8 @@ class _SearchState extends State<Search> {
   String _searchQuery = '';
   String _accessToken = '';
 
-  String _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
+  String _chars =
+      'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
   Random _rnd = Random();
 
   String getRandomString(int length) {
@@ -110,6 +113,10 @@ class _SearchState extends State<Search> {
                   var artistName = song['artists'][0]['name'];
                   var albumName = song['album']['name'];
                   var albumArtUrl = song['album']['images'][0]['url'];
+                  var previewUrl = song['preview_url'];
+
+                  // Print the preview URL for debugging
+                  print('Preview URL: $previewUrl');
 
                   return Card(
                     margin: EdgeInsets.symmetric(vertical: 8.0),
@@ -132,6 +139,32 @@ class _SearchState extends State<Search> {
                         '$artistName - $albumName',
                         style: TextStyle(color: Colors.white70),
                       ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.play_arrow, color: Colors.white),
+                        onPressed: () async {
+                          if (previewUrl != null && previewUrl.isNotEmpty) {
+                            try {
+                              bool launched = await launch(previewUrl, forceSafariVC: false,
+                                  forceWebView: false);
+                              if (!launched) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Could not open the preview URL')),
+                                );
+                              }
+                            } catch (error) {
+                              print('Error launching URL: $error');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error opening the preview URL')),
+                              );
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Preview URL not available')),
+                            );
+                          }
+                        },
+                      ),
+
                     ),
                   );
                 },
@@ -148,7 +181,7 @@ class _SearchState extends State<Search> {
               child: IconButton(
                 onPressed: () {
                   // Navigate to home screen
-                  Navigator.pushNamed(context, '/home');
+                  Navigator.pushNamed(context, '/');
                 },
                 icon: Icon(
                   Icons.home,
@@ -172,4 +205,5 @@ class _SearchState extends State<Search> {
       ),
     );
   }
+
 }
