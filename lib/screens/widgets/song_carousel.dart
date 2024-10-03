@@ -62,7 +62,14 @@ class _SongCarouselState extends State<SongCarousel> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8.0),
-                        child: QueryArtworkWidget(
+                        child:song.ImageUrl != null && song.ImageUrl.isNotEmpty
+                            ? Image.network(
+                          song.ImageUrl, // Use image URL from Firestore
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                        )
+                            : QueryArtworkWidget(
                           // Display album artwork using QueryArtworkWidget
                           id: int.tryParse(song.id) ?? 0, // Assuming song.id is still valid
                           type: ArtworkType.AUDIO,

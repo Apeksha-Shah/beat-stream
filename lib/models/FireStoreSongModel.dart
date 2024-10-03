@@ -8,6 +8,7 @@ class FirestoreSongModel {
   final String album;
   final String genre; // Add genre
   final DateTime releaseDate; // Add release date
+  final String ImageUrl;
 
   FirestoreSongModel({
     required this.id,
@@ -17,6 +18,7 @@ class FirestoreSongModel {
     required this.album,
     required this.genre,
     required this.releaseDate,
+    required this.ImageUrl,
   });
 
   // Method to create an instance from Firestore document
@@ -33,6 +35,7 @@ class FirestoreSongModel {
       releaseDate: data?['releaseDate'] != null
           ? (data?['releaseDate'] as Timestamp).toDate()
           : DateTime.now(),
+      ImageUrl: data?['ImageUrl'] ?? 'https://via.placeholder.com/150'
     );
   }
 

@@ -124,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Updated: set a default image without accessing FirestoreSongModel imageUrl
   Widget buildSongTile(FirestoreSongModel song) {
-    const String defaultImageUrl = 'https://via.placeholder.com/150'; // Default image
+    // const String defaultImageUrl = 'https://via.placeholder.com/150'; // Default image
 
     return Container(
       height: 60,
@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8.0),
             child: Image.network(
-              defaultImageUrl, // Always use default image
+              song.ImageUrl, // Always use default image
               width: 60,
               height: 60,
               fit: BoxFit.cover,

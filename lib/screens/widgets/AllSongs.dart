@@ -67,47 +67,57 @@ class _AllsongsState extends State<Allsongs> {
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.builder(
                 itemCount: songs.length,
-                itemBuilder: (context, index) => ListTile(
-                  leading: const Icon(Icons.music_note, color: Colors.white),
-                  // Inside your Allsongs class
-                  onTap: () {
-                    // Set the current song in the provider
-                    context.read<SongModelProvider>().setCurrentSong(songs[index]);
+                itemBuilder: (context, index) {
+                  final song = songs[index];
+                  return ListTile(
+                    leading: Image.network(
+                      song.ImageUrl,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.music_note, color: Colors.white); // Fallback icon
+                      },
+                    ),
+                    onTap: () {
+                      // Set the current song in the provider
+                      context.read<SongModelProvider>().setCurrentSong(songs[index]);
 
-                    // Update the current song index
-                    setState(() {
-                      _currentSongIndex = index;
-                    });
+                      // Update the current song index
+                      setState(() {
+                        _currentSongIndex = index;
+                      });
 
-                    // Play the song immediately without waiting for the play button
-                    _playCurrentSong();
+                      // Play the song immediately without waiting for the play button
+                      _playCurrentSong();
 
-                    // Navigate to the Audioplayerscreenstate if needed
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => Audioplayerscreenstate(
-                          songModel: songs[index],
-                          audioPlayer: audioPlayer,
-                          songList: songs,
-                          currentIndex: index,
+                      // Navigate to the Audioplayerscreenstate if needed
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Audioplayerscreenstate(
+                            songModel: songs[index],
+                            audioPlayer: audioPlayer,
+                            songList: songs,
+                            currentIndex: index,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  title: Text(
-                    songs[index].title,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  subtitle: Text(
-                    '${songs[index].artist}',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  trailing: const Icon(
-                    Icons.more_horiz,
-                    color: Colors.white,
-                  ),
-                ),
+                      );
+                    },
+                    title: Text(
+                      song.title,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      '${song.artist}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    trailing: const Icon(
+                      Icons.more_horiz,
+                      color: Colors.white,
+                    ),
+                  );
+                },
               ),
             ),
             SafeArea(
@@ -123,21 +133,22 @@ class _AllsongsState extends State<Allsongs> {
                       final songDuration = audioPlayer.duration ?? Duration.zero;
 
                       return MusicPlayerWidget(
-                        currentSong: context.read<SongModelProvider>().getCurrentSong() ?? FirestoreSongModel(
-                          id: '', // Default or placeholder ID
-                          url: '',
-                          title: 'Unknown Song',
-                          artist: 'Unknown Artist',
-                          album: 'Unknown Album',
-                          genre: 'Unknown Genre', // Default or placeholder genre
-                          releaseDate: DateTime.now(), // Default or placeholder release date
-                        ),
+                        currentSong: context.read<SongModelProvider>().getCurrentSong() ??
+                            FirestoreSongModel(
+                              id: '', // Default or placeholder ID
+                              url: '',
+                              title: 'Unknown Song',
+                              artist: 'Unknown Artist',
+                              album: 'Unknown Album',
+                              genre: 'Unknown Genre', // Default or placeholder genre
+                              releaseDate: DateTime.now(), // Default or placeholder release date
+                              ImageUrl: '',
+                            ),
                         onNext: _nextSong,
                         onPrevious: _previousSong,
                         songPosition: position,
                         songDuration: songDuration,
                       );
-
                     },
                   )
                       : const SizedBox.shrink(),
@@ -182,7 +193,7 @@ class _AllsongsState extends State<Allsongs> {
       title: song.title,
       artist: song.artist,
       duration: duration ?? Duration.zero, // Use fetched duration
-      artUri: Uri.parse(song.url), // Placeholder or actual artwork URL
+      artUri: Uri.parse(song.ImageUrl), // Song image URL
     );
 
     await audioPlayer.setAudioSource(
