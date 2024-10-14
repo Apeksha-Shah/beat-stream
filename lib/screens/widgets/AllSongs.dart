@@ -18,12 +18,16 @@ class Allsongs extends StatefulWidget {
 
 class _AllsongsState extends State<Allsongs> {
   List<FirestoreSongModel> songs = [];
-  int _currentSongIndex = -1; // Start from -1 to handle no selection scenario
+  List<FirestoreSongModel> filteredSongs = []; // List for filtered songs
+  TextEditingController _searchController = TextEditingController(); // Search controller
+  int _currentSongIndex = -1;
 
   @override
   void initState() {
     super.initState();
     _fetchSongsFromFirestore();
+    _searchController.addListener(_filterSongs); // Add listener for search input
+    _currentSongIndex = audioPlayer.androidAudioSessionId ?? -1;
   }
 
   Future<void> _fetchSongsFromFirestore() async {
@@ -34,6 +38,19 @@ class _AllsongsState extends State<Allsongs> {
 
     setState(() {
       songs = fetchedSongs;
+      filteredSongs = fetchedSongs; // Initially, filtered list is the same as all songs
+    });
+  }
+
+  // Function to filter songs based on search input
+  void _filterSongs() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      filteredSongs = songs
+          .where((song) =>
+      song.title.toLowerCase().contains(query) ||
+          song.artist.toLowerCase().contains(query))
+          .toList();
     });
   }
 
@@ -46,29 +63,42 @@ class _AllsongsState extends State<Allsongs> {
           "Music Directory",
           style: TextStyle(color: Colors.white),
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/Audioplayerscreenstate');
-            },
-            icon: const Icon(
-              Icons.search,
-              color: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(50.0),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by song name or artist',
+                hintStyle: const TextStyle(color: Colors.white),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.1),
+                prefixIcon: const Icon(Icons.search, color: Colors.white),
+                border: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              style: const TextStyle(color: Colors.white),
+              onChanged: (value) {
+                _filterSongs(); // Call filter method on text change
+              },
             ),
           ),
-        ],
+        ),
       ),
       backgroundColor: const Color(0xFF001A2D),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: songs.isEmpty
+              child: filteredSongs.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.builder(
-                itemCount: songs.length,
+                itemCount: filteredSongs.length,
                 itemBuilder: (context, index) {
-                  final song = songs[index];
+                  final song = filteredSongs[index];
                   return ListTile(
                     leading: Image.network(
                       song.ImageUrl,
@@ -81,7 +111,7 @@ class _AllsongsState extends State<Allsongs> {
                     ),
                     onTap: () {
                       // Set the current song in the provider
-                      context.read<SongModelProvider>().setCurrentSong(songs[index]);
+                      context.read<SongModelProvider>().setCurrentSong(filteredSongs[index]);
 
                       // Update the current song index
                       setState(() {
@@ -96,9 +126,9 @@ class _AllsongsState extends State<Allsongs> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => Audioplayerscreenstate(
-                            songModel: songs[index],
+                            songModel: filteredSongs[index],
                             audioPlayer: audioPlayer,
-                            songList: songs,
+                            songList: filteredSongs,
                             currentIndex: index,
                           ),
                         ),
@@ -140,9 +170,10 @@ class _AllsongsState extends State<Allsongs> {
                               title: 'Unknown Song',
                               artist: 'Unknown Artist',
                               album: 'Unknown Album',
-                              genre: 'Unknown Genre', // Default or placeholder genre
-                              releaseDate: DateTime.now(), // Default or placeholder release date
+                              genre: 'Unknown Genre',
+                              releaseDate: DateTime.now(),
                               ImageUrl: '',
+                              lyrics: '',
                             ),
                         onNext: _nextSong,
                         onPrevious: _previousSong,
@@ -182,27 +213,38 @@ class _AllsongsState extends State<Allsongs> {
   }
 
   void _playCurrentSong() async {
-    final song = songs[_currentSongIndex];
+    try {
+      final song = songs[_currentSongIndex];
 
-    // Get actual duration before setting the audio source
-    final duration = await audioPlayer.setUrl(song.url);
+      // Get actual duration before setting the audio source
+      final duration = await audioPlayer.setUrl(song.url);
 
-    final mediaItem = MediaItem(
-      id: song.url, // Ensure this matches your song model's unique ID
-      album: song.album,
-      title: song.title,
-      artist: song.artist,
-      duration: duration ?? Duration.zero, // Use fetched duration
-      artUri: Uri.parse(song.ImageUrl), // Song image URL
-    );
+      final mediaItem = MediaItem(
+        id: song.url, // Ensure this matches your song model's unique ID
+        album: song.album,
+        title: song.title,
+        artist: song.artist,
+        duration: duration ?? Duration.zero, // Use fetched duration
+        artUri: Uri.parse(song.ImageUrl), // Song image URL
+      );
 
-    await audioPlayer.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(song.url),
-        tag: mediaItem,
-      ),
-    );
+      await audioPlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(song.url),
+          tag: mediaItem,
+        ),
+      );
 
-    await audioPlayer.play();
+      await audioPlayer.play();
+    } catch (e) {
+      print("Error playing song: $e");
+    }
+  }
+
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 }

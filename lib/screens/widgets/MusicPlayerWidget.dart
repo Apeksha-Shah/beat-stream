@@ -29,7 +29,17 @@ class MusicPlayerWidget extends StatelessWidget {
       color: const Color(0xFF001A2D),
       child: Row(
         children: [
+
           // Album Art
+
+          currentSong.ImageUrl.isNotEmpty
+              ? Image.network(
+            currentSong.ImageUrl, // Use image URL from Firestore
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          )
+              :
           QueryArtworkWidget(
             id: int.tryParse(currentSong.id) ?? 0, // Assuming the id is the Firestore ID
             type: ArtworkType.AUDIO,
