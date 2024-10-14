@@ -27,7 +27,7 @@ class _AllsongsState extends State<Allsongs> {
     super.initState();
     _fetchSongsFromFirestore();
     _searchController.addListener(_filterSongs); // Add listener for search input
-    _currentSongIndex = audioPlayer.androidAudioSessionId ?? -1;
+    _currentSongIndex = audioPlayer.currentIndex ?? audioPlayer.androidAudioSessionId ?? -1;
   }
 
   Future<void> _fetchSongsFromFirestore() async {
@@ -191,7 +191,6 @@ class _AllsongsState extends State<Allsongs> {
       ),
     );
   }
-
   void _nextSong() {
     if (_currentSongIndex < songs.length - 1) {
       setState(() {
