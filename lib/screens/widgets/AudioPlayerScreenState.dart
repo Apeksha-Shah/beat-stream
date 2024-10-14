@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../controller/MusicPlayerControls.dart';
 import '../../provider/song_model_provider.dart';
 import '../../models/FireStoreSongModel.dart';
+import '../../global/LikedSongs.dart'; // Import the service at the top
 
 class Audioplayerscreenstate extends StatefulWidget {
   const Audioplayerscreenstate({
@@ -38,6 +39,8 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
   int _currentSongIndex = 0;
   final FlutterBlue flutterBlue = FlutterBlue.instance;
   bool _isMounted = false;
+  Set<String> likedSongs = {}; // Store liked song IDs
+  final LikedSongsService _likedSongsService = LikedSongsService(); // Create an instance
 
   @override
   void initState() {
@@ -49,6 +52,25 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
     listenForDeviceChanges();
     monitorAudioFocus();
     scanBluetoothDevices();
+    loadLikedSongs(); // Load liked songs from storage
+  }
+
+  // Load liked songs into the set
+  void loadLikedSongs() async {
+    likedSongs = Set<String>.from(await _likedSongsService.getLikedSongs());
+    setState(() {}); // Update UI if needed
+  }
+
+  void toggleLike(String songId) async {
+    setState(() {
+      if (likedSongs.contains(songId)) {
+        likedSongs.remove(songId); // Unlike the song
+        _likedSongsService.removeLikedSong(songId); // Remove from storage
+      } else {
+        likedSongs.add(songId); // Like the song
+        _likedSongsService.saveLikedSong(songId); // Save to storage
+      }
+    });
   }
 
   @override
@@ -152,27 +174,10 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
           setState(() {
             _songDuration = duration ?? Duration.zero;
           });
-        }// Listen for current position changes
-        widget.audioPlayer.positionStream.listen((position) {
-          if (_isMounted) {
-            setState(() {
-              _currentPosition = position; // Ensure _currentPosition is always updated
-            });
-          }
-        });
-
-// Listen for duration changes
-        widget.audioPlayer.durationStream.listen((duration) {
-          if (_isMounted) {
-            setState(() {
-              _songDuration = duration ?? Duration.zero; // Ensure _songDuration is updated
-            });
-          }
-        });
-
+        }
       });
 
-      context.read<SongModelProvider>().setId(songModel.id );
+      context.read<SongModelProvider>().setId(songModel.id);
 
     } catch (e) {
       log("Cannot play the song: $e");
@@ -183,8 +188,8 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
     if (_currentSongIndex < widget.songList.length - 1) {
       _currentSongIndex++;
       playSong(widget.songList[_currentSongIndex]);
-      context.read<SongModelProvider>().setId(widget.songList[_currentSongIndex].id ); // Set the new song ID
-      context.read<SongModelProvider>().setCurrentSong(widget.songList[_currentSongIndex]);       // Set the new song
+      context.read<SongModelProvider>().setId(widget.songList[_currentSongIndex].id); // Set the new song ID
+      context.read<SongModelProvider>().setCurrentSong(widget.songList[_currentSongIndex]); // Set the new song
     } else {
       log("No more songs to play.");
     }
@@ -194,8 +199,8 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
     if (_currentSongIndex > 0) {
       _currentSongIndex--;
       playSong(widget.songList[_currentSongIndex]);
-      context.read<SongModelProvider>().setId(widget.songList[_currentSongIndex].id ); // Set the new song ID
-      context.read<SongModelProvider>().setCurrentSong(widget.songList[_currentSongIndex]);       // Set the new song
+      context.read<SongModelProvider>().setId(widget.songList[_currentSongIndex].id); // Set the new song ID
+      context.read<SongModelProvider>().setCurrentSong(widget.songList[_currentSongIndex]); // Set the new song
     } else {
       log("No previous songs to play.");
     }
@@ -229,10 +234,16 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                 const SizedBox(height: 40.0),
                 Column(
                   children: [
-                    ArtWorkWidget(song: widget.songList[_currentSongIndex]),
+                    // Stack to overlay the liked icon on the artwork
+                    Stack(
+                      alignment: Alignment.topRight, // Aligns the icon to the top right
+                      children: [
+                        ArtWorkWidget(song: widget.songList[_currentSongIndex]),
+                      ],
+                    ),
                     const SizedBox(height: 50.0),
                     Text(
-                      widget.songList[_currentSongIndex].title, // Updated
+                      widget.songList[_currentSongIndex].title,
                       overflow: TextOverflow.fade,
                       maxLines: 1,
                       style: const TextStyle(
@@ -242,7 +253,7 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                     ),
                     const SizedBox(height: 10.0),
                     Text(
-                      widget.songList[_currentSongIndex].artist, // Updated
+                      widget.songList[_currentSongIndex].artist,
                       overflow: TextOverflow.fade,
                       maxLines: 1,
                       style: const TextStyle(
@@ -261,14 +272,16 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                           child: Slider(
                             value: _currentPosition.inSeconds.toDouble(),
                             min: 0.0,
-                            max: _songDuration.inSeconds > 0 ? _songDuration.inSeconds.toDouble() : 1.0,  // Prevents max from being zero
-                            onChanged: (value) {
+                            max: _songDuration.inSeconds.toDouble(),
+                            onChanged: (value) async {
                               setState(() {
-                                widget.audioPlayer.seek(Duration(seconds: value.toInt()));
+                                _currentPosition = Duration(seconds: value.toInt());
                               });
+                              await widget.audioPlayer.seek(_currentPosition);
+                              if (!_isPlaying) {
+                                widget.audioPlayer.play();
+                              }
                             },
-                            activeColor: Colors.green,
-                            inactiveColor: Colors.white,
                           ),
                         ),
                         Text(
@@ -277,64 +290,55 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20.0),
+                    const SizedBox(height: 30.0),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         IconButton(
-                          onPressed: _previousSong, // Handle previous song
-                          icon: const Icon(Icons.skip_previous, color: Colors.white, size: 40),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            final newPosition = _currentPosition - const Duration(seconds: 10);
-                            widget.audioPlayer.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
-                          },
-                          icon: const Icon(Icons.replay_10, color: Colors.white, size: 40),
-                        ),
-                        CircleAvatar(
-                          radius: 30.0,
-                          backgroundColor: Colors.green,
-                          child: StreamBuilder<PlayerState>(
-                            stream: widget.audioPlayer.playerStateStream,
-                            builder: (context, snapshot) {
-                              final playerState = snapshot.data;
-                              final processingState = playerState?.processingState;
-                              final playing = playerState?.playing;
-
-                              if (processingState == ProcessingState.loading || processingState == ProcessingState.buffering) {
-                                return const CircularProgressIndicator(color: Colors.white);
-                              } else if (playing != true) {
-                                return IconButton(
-                                  onPressed: widget.audioPlayer.play,
-                                  icon: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
-                                );
-                              } else if (processingState != ProcessingState.completed) {
-                                return IconButton(
-                                  onPressed: widget.audioPlayer.pause,
-                                  icon: const Icon(Icons.pause, color: Colors.white, size: 30),
-                                );
-                              } else {
-                                return IconButton(
-                                  onPressed: () {
-                                    _nextSong(); // Skip to next song when done
-                                  },
-                                  icon: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
-                                );
-                              }
-                            },
+                          onPressed: _previousSong,
+                          icon: const Icon(
+                            Icons.skip_previous,
+                            color: Colors.white,
+                            size: 35.0,
                           ),
                         ),
                         IconButton(
                           onPressed: () {
-                            final newPosition = _currentPosition + const Duration(seconds: 10);
-                            widget.audioPlayer.seek(newPosition > _songDuration ? _songDuration : newPosition);
+                            if (_isPlaying) {
+                              widget.audioPlayer.pause();
+                            } else {
+                              widget.audioPlayer.play();
+                            }
+                            setState(() {
+                              _isPlaying = !_isPlaying;
+                            });
                           },
-                          icon: const Icon(Icons.forward_10, color: Colors.white, size: 40),
+                          icon: Icon(
+                            _isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 35.0,
+                          ),
                         ),
                         IconButton(
-                          onPressed: _nextSong, // Handle next song
-                          icon: const Icon(Icons.skip_next, color: Colors.white, size: 40),
+                          onPressed: _nextSong,
+                          icon: const Icon(
+                            Icons.skip_next,
+                            color: Colors.white,
+                            size: 35.0,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            likedSongs.contains(widget.songList[_currentSongIndex].id)
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color: likedSongs.contains(widget.songList[_currentSongIndex].id)
+                                ? Colors.green // Set color to green if liked
+                                : Colors.white, // Default color if not liked
+                          ),
+                          onPressed: () {
+                            toggleLike(widget.songList[_currentSongIndex].id); // Toggle like
+                          },
                         ),
                       ],
                     ),

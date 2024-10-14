@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'global/LikedSongsList.dart';
 import 'screens/widgets/home_screen.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 
@@ -94,6 +95,7 @@ class _AppState extends State<App> {
         '/login': (context) => LoginScreen(),
         '/register': (context) => RegisterScreen(),
         '/Allsongs': (context) => const Allsongs(),
+        '/liked_songs': (context) => LikedSongs(),
       },
     );
   }

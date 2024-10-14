@@ -223,6 +223,14 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.search, size: 30, color: Colors.white),
           ),
         ),
+        Expanded(
+          child: IconButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/liked_songs'); // Navigate to liked songs screen
+            },
+            icon: const Icon(Icons.favorite_border, size: 30, color: Colors.white), // Liked songs icon
+          ),
+        ),
       ],
     );
   }
