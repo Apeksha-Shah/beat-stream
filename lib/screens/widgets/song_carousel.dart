@@ -1,9 +1,12 @@
+import 'package:beat_stream/global/audio_player_singleton.dart';
 import 'package:beat_stream/screens/widgets/ArtWorkWidget.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:beat_stream/screens/widgets/AudioPlayerScreenState.dart';
+import 'package:provider/provider.dart';
 import '../../models/FireStoreSongModel.dart';
+import '../../provider/song_model_provider.dart';
 
 class SongCarousel extends StatefulWidget {
   final List<FirestoreSongModel> songs; // Updated type
@@ -43,12 +46,13 @@ class _SongCarouselState extends State<SongCarousel> {
               final song = widget.songs[index];
               return GestureDetector(
                 onTap: () {
+                  context.read<SongModelProvider>().setCurrentSong(widget.songs[index]);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => Audioplayerscreenstate(
                         songModel: song, // Updated type
-                        audioPlayer: AudioPlayer(),
+                        audioPlayer: audioPlayer,
                         songList: widget.songs, // Pass the same list
                         currentIndex: index,
                       ),
@@ -62,7 +66,14 @@ class _SongCarouselState extends State<SongCarousel> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8.0),
-                        child: QueryArtworkWidget(
+                        child:song.ImageUrl != null && song.ImageUrl.isNotEmpty
+                            ? Image.network(
+                          song.ImageUrl, // Use image URL from Firestore
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                        )
+                            : QueryArtworkWidget(
                           // Display album artwork using QueryArtworkWidget
                           id: int.tryParse(song.id) ?? 0, // Assuming song.id is still valid
                           type: ArtworkType.AUDIO,

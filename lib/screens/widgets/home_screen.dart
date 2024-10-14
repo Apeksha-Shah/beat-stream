@@ -19,7 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<FirestoreSongModel> deviceSongs = [];
   final OnAudioQuery _audioQuery = OnAudioQuery();
   int _currentSongIndex = 0;
-  final AudioPlayer audioPlayer = AudioPlayer();
+  // final AudioPlayer audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -41,6 +41,15 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
     } catch (e) {
       print("Error fetching songs: $e"); // Handle errors gracefully
+    }
+  }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Check if there is a current song in the SongModelProvider and update the UI accordingly
+    if (context.read<SongModelProvider>().hasCurrentSong()) {
+      setState(() {});
     }
   }
 
@@ -124,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Updated: set a default image without accessing FirestoreSongModel imageUrl
   Widget buildSongTile(FirestoreSongModel song) {
-    const String defaultImageUrl = 'https://via.placeholder.com/150'; // Default image
+    // const String defaultImageUrl = 'https://via.placeholder.com/150'; // Default image
 
     return Container(
       height: 60,
@@ -138,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8.0),
             child: Image.network(
-              defaultImageUrl, // Always use default image
+              song.ImageUrl, // Always use default image
               width: 60,
               height: 60,
               fit: BoxFit.cover,
@@ -163,31 +172,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget buildBottomAppBar() {
     return SizedBox(
-      height: 200,
+      height: 172,
       child: BottomAppBar(
         color: Color(0xFF001A2D),
         child: Column(
           children: [
             SafeArea(
               child: SizedBox(
-                height: 120,
-                child: deviceSongs.isNotEmpty && context.read<SongModelProvider>().hasCurrentSong()
-                    ? StreamBuilder<Duration?>( // Stream to listen to the audio position
-                  stream: audioPlayer.positionStream,
-                  builder: (context, snapshot) {
-                    final position = snapshot.data ?? Duration.zero;
-                    final songDuration = audioPlayer.duration ?? Duration.zero;
+                height: 100,
+                  child: deviceSongs.isNotEmpty && context.watch<SongModelProvider>().hasCurrentSong()
+                      ? StreamBuilder<Duration?>(
+                    stream: audioPlayer.positionStream,
+                    builder: (context, snapshot) {
+                      final position = snapshot.data ?? Duration.zero;
+                      final songDuration = audioPlayer.duration ?? Duration.zero;
 
-                    return MusicPlayerWidget(
-                      currentSong: context.read<SongModelProvider>().getCurrentSong()!,
-                      onNext: _nextSong,
-                      onPrevious: _previousSong,
-                      songPosition: position,
-                      songDuration: songDuration,
-                    );
-                  },
-                )
-                    : const SizedBox.shrink(), // Handle no song case
+                      return MusicPlayerWidget(
+                        currentSong: context.watch<SongModelProvider>().getCurrentSong()!,
+                        onNext: _nextSong,
+                        onPrevious: _previousSong,
+                        songPosition: position,
+                        songDuration: songDuration,
+                      );
+                    },
+                  )
+                      : const SizedBox.shrink(),// Handle no song case
               ),
             ),
             buildNavigationButtons(),
