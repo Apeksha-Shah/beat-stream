@@ -1,3 +1,4 @@
+import 'package:beat_stream/screens/widgets/playlistpage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:beat_stream/models/FireStoreSongModel.dart'; // Ensure this is the correct import for FirestoreSongModel
@@ -230,6 +231,20 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             icon: const Icon(Icons.favorite_border, size: 30, color: Colors.white), // Liked songs icon
           ),
+        ),
+        Expanded(
+            child: IconButton(
+              icon: const Icon(
+                Icons.library_music,
+                  size: 30, color: Colors.white
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => PlaylistPage()),
+                );
+              },
+            ),
         ),
       ],
     );

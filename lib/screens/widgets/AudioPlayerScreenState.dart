@@ -1,6 +1,8 @@
 import 'dart:developer';
 import 'package:beat_stream/global/toast.dart';
 import 'package:beat_stream/screens/widgets/ArtWorkWidget.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue/flutter_blue.dart';
@@ -42,11 +44,15 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
   Set<String> likedSongs = {}; // Store liked song IDs
   final LikedSongsService _likedSongsService = LikedSongsService(); // Create an instance
 
+  // List to hold playlists (simple implementation, can be improved)
+  List<String> playlists = [];
+
   @override
   void initState() {
     super.initState();
     requestPermissions();
     _isMounted = true;
+    _isPlaying = true;
     _currentSongIndex = widget.currentIndex;
     playSong(widget.songList[_currentSongIndex]);
     listenForDeviceChanges();
@@ -130,7 +136,159 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
       Permission.location,
     ].request();
   }
+  void AddtoPlaylist() async {
+    var userId = FirebaseAuth.instance.currentUser?.uid;
 
+    if (userId == null) {
+      showToast(message: "User not logged in!");
+      return;
+    }
+
+    try {
+      // Fetch the playlists that belong to the logged-in user
+      var playlistsSnapshot = await FirebaseFirestore.instance
+          .collection('playlists') // Directly query the playlists collection
+          .where('userId', isEqualTo: userId) // Filter by userId
+          .get();
+
+      // Show dialog for the user to either create a new playlist or select an existing one
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Add to Playlist"),
+            content: playlistsSnapshot.docs.isEmpty
+                ? const Text("You have no playlists. Create one below.")
+                : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ...playlistsSnapshot.docs.map((playlist) {
+                  return ListTile(
+                    title: Text(playlist['name']),
+                    onTap: () async {
+                      // Add the song to the selected playlist
+                      await addToExistingPlaylist(playlist.id, userId);
+                      Navigator.pop(context);
+                    },
+                  );
+                }).toList(),
+                const SizedBox(height: 10),
+                const Divider(),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _createNewPlaylist(userId);
+                  },
+                  child: const Text("Create New Playlist"),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      showToast(message: "Error loading playlists: $e");
+    }
+  }
+
+  Future<void> addToExistingPlaylist(String playlistId, String userId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('playlists')
+          .doc(playlistId)
+          .update({
+        'songs': FieldValue.arrayUnion([widget.songModel.id])
+      });
+
+      showToast(message: "Song added to playlist!");
+    } catch (e) {
+      showToast(message: "Error adding song to playlist: $e");
+    }
+  }
+
+  void _createNewPlaylist(String userId) async {
+    String playlistName = await showDialog(
+      context: context,
+      builder: (context) {
+        TextEditingController controller = TextEditingController();
+        return AlertDialog(
+          title: const Text("Enter Playlist Name"),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: "Enter name for new playlist",
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, controller.text);
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (playlistName.isNotEmpty) {
+      try {
+        // Create a new playlist and add the song to it
+        await FirebaseFirestore.instance.collection('playlists').add({
+          'name': playlistName,
+          'userId': userId,
+          'songs': [widget.songModel.id], // Add the current song
+        });
+
+        showToast(message: "New playlist '$playlistName' created and song added!");
+      } catch (e) {
+        showToast(message: "Error creating playlist: $e");
+      }
+    }
+  }
+
+
+  void showPlaylist() async {
+    // Fetch the playlists for the logged-in user from Firebase
+    var userId = FirebaseAuth.instance.currentUser!.uid;
+    var playlists = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('playlists')
+        .get();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Current Playlists"),
+          content: playlists.docs.isEmpty
+              ? const Text("No playlists available.")
+              : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: playlists.docs.map((playlist) {
+              return ListTile(
+                title: Text(playlist['name']),
+                onTap: () {
+                  // Handle playlist selection if needed
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
   void playSong(FirestoreSongModel songModel) async {
     try {
       // Load the audio source first
@@ -212,6 +370,21 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return "$minutes:$seconds";
   }
+  void playPauseToggle() async {
+    if (_isPlaying) {
+      // Pause the audio
+      await widget.audioPlayer.pause();
+      setState(() {
+        _isPlaying = false;
+      });
+    } else {
+      // Play the audio
+      await widget.audioPlayer.play();
+      setState(() {
+        _isPlaying = true;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +434,21 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                         fontSize: 18.0,
                       ),
                     ),
-                    const SizedBox(height: 60.0),
+                    const SizedBox(height: 40.0),
+                    // Row(
+                    //   children: [
+                    //     Expanded(
+                    //       child: IconButton(
+                    //         onPressed: showPlaylist,
+                    //         icon: const Icon(
+                    //           Icons.playlist_play_rounded,
+                    //           color: Colors.white,
+                    //           size: 40,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
                     Row(
                       children: [
                         Text(
@@ -282,6 +469,8 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                                 widget.audioPlayer.play();
                               }
                             },
+                            activeColor: Colors.green,
+                            inactiveColor: Colors.white,
                           ),
                         ),
                         Text(
@@ -295,28 +484,27 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         IconButton(
+                          onPressed:  AddtoPlaylist,
+                          icon: const Icon(
+                            Icons.playlist_add,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                        IconButton(
                           onPressed: _previousSong,
                           icon: const Icon(
                             Icons.skip_previous,
                             color: Colors.white,
-                            size: 35.0,
+                            size: 40.0,
                           ),
                         ),
                         IconButton(
-                          onPressed: () {
-                            if (_isPlaying) {
-                              widget.audioPlayer.pause();
-                            } else {
-                              widget.audioPlayer.play();
-                            }
-                            setState(() {
-                              _isPlaying = !_isPlaying;
-                            });
-                          },
+                          onPressed: playPauseToggle,
                           icon: Icon(
                             _isPlaying ? Icons.pause : Icons.play_arrow,
                             color: Colors.white,
-                            size: 35.0,
+                            size: 40.0,
                           ),
                         ),
                         IconButton(
@@ -324,7 +512,7 @@ class _AudioplayerscreenstateState extends State<Audioplayerscreenstate> {
                           icon: const Icon(
                             Icons.skip_next,
                             color: Colors.white,
-                            size: 35.0,
+                            size: 40.0,
                           ),
                         ),
                         IconButton(

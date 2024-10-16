@@ -1,13 +1,17 @@
 import 'package:beat_stream/global/audio_player_singleton.dart';
 import 'package:beat_stream/screens/widgets/AudioPlayerScreenState.dart';
 import 'package:beat_stream/screens/widgets/MusicPlayerWidget.dart';
+import 'package:beat_stream/screens/widgets/playlistpage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import '../../global/toast.dart';
 import '../../provider/song_model_provider.dart';
 import '../../models/FireStoreSongModel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Allsongs extends StatefulWidget {
   const Allsongs({super.key});
@@ -18,15 +22,15 @@ class Allsongs extends StatefulWidget {
 
 class _AllsongsState extends State<Allsongs> {
   List<FirestoreSongModel> songs = [];
-  List<FirestoreSongModel> filteredSongs = []; // List for filtered songs
-  TextEditingController _searchController = TextEditingController(); // Search controller
+  List<FirestoreSongModel> filteredSongs = [];
+  TextEditingController _searchController = TextEditingController();
   int _currentSongIndex = -1;
 
   @override
   void initState() {
     super.initState();
     _fetchSongsFromFirestore();
-    _searchController.addListener(_filterSongs); // Add listener for search input
+    _searchController.addListener(_filterSongs);
     _currentSongIndex = audioPlayer.currentIndex ?? audioPlayer.androidAudioSessionId ?? -1;
   }
 
@@ -38,11 +42,10 @@ class _AllsongsState extends State<Allsongs> {
 
     setState(() {
       songs = fetchedSongs;
-      filteredSongs = fetchedSongs; // Initially, filtered list is the same as all songs
+      filteredSongs = fetchedSongs;
     });
   }
 
-  // Function to filter songs based on search input
   void _filterSongs() {
     final query = _searchController.text.toLowerCase();
     setState(() {
@@ -54,6 +57,120 @@ class _AllsongsState extends State<Allsongs> {
     });
   }
 
+  void _addToPlaylist(FirestoreSongModel song) async {
+    var userId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (userId == null) {
+      showToast(message: "User not logged in!");
+      return;
+    }
+
+    try {
+      // Fetch the playlists that belong to the logged-in user
+      var playlistsSnapshot = await FirebaseFirestore.instance
+          .collection('playlists')
+          .where('userId', isEqualTo: userId) // Filter by userId
+          .get();
+
+      // Show dialog for the user to either create a new playlist or select an existing one
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Add to Playlist"),
+            content: playlistsSnapshot.docs.isEmpty
+                ? const Text("You have no playlists. Create one below.")
+                : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Show existing playlists
+                ...playlistsSnapshot.docs.map((playlist) {
+                  return ListTile(
+                    title: Text(playlist['name']),
+                    onTap: () async {
+                      // Add the song to the selected playlist
+                      await _addToExistingPlaylist(playlist.id, song.id);
+                      Navigator.pop(context);
+                    },
+                  );
+                }).toList(),
+                const SizedBox(height: 10),
+                const Divider(),
+                const SizedBox(height: 10),
+                // Create a new playlist option
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _createNewPlaylist(userId, song.id);
+                  },
+                  child: const Text("Create New Playlist"),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      showToast(message: "Error loading playlists: $e");
+    }
+  }
+  Future<void> _addToExistingPlaylist(String playlistId, String songId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('playlists')
+          .doc(playlistId)
+          .update({
+        'songIds': FieldValue.arrayUnion([songId]) // Add the song to the playlist
+      });
+
+      showToast(message: "Song added to playlist!");
+    } catch (e) {
+      showToast(message: "Error adding song to playlist: $e");
+    }
+  }
+  void _createNewPlaylist(String userId, String songId) async {
+    String playlistName = await showDialog(
+      context: context,
+      builder: (context) {
+        TextEditingController controller = TextEditingController();
+        return AlertDialog(
+          title: const Text("Enter Playlist Name"),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: "Enter name for new playlist",
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, controller.text);
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (playlistName.isNotEmpty) {
+      try {
+        // Create a new playlist and add the song to it
+        await FirebaseFirestore.instance.collection('playlists').add({
+          'name': playlistName,
+          'userId': userId,
+          'songIds': [songId], // Add the current song to the new playlist
+        });
+
+        showToast(message: "New playlist '$playlistName' created and song added!");
+      } catch (e) {
+        showToast(message: "Error creating playlist: $e");
+      }
+    } else {
+      showToast(message: "Playlist name cannot be empty!");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,6 +180,21 @@ class _AllsongsState extends State<Allsongs> {
           "Music Directory",
           style: TextStyle(color: Colors.white),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+                Icons.library_music,
+                size: 25.0,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => PlaylistPage()),
+              );
+            },
+          ),
+          const SizedBox(width: 30.0,)
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50.0),
           child: Padding(
@@ -82,7 +214,7 @@ class _AllsongsState extends State<Allsongs> {
               ),
               style: const TextStyle(color: Colors.white),
               onChanged: (value) {
-                _filterSongs(); // Call filter method on text change
+                _filterSongs();
               },
             ),
           ),
@@ -106,22 +238,15 @@ class _AllsongsState extends State<Allsongs> {
                       height: 60,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.music_note, color: Colors.white); // Fallback icon
+                        return const Icon(Icons.music_note, color: Colors.white);
                       },
                     ),
                     onTap: () {
-                      // Set the current song in the provider
                       context.read<SongModelProvider>().setCurrentSong(filteredSongs[index]);
-
-                      // Update the current song index
                       setState(() {
                         _currentSongIndex = index;
                       });
-
-                      // Play the song immediately without waiting for the play button
                       _playCurrentSong();
-
-                      // Navigate to the Audioplayerscreenstate if needed
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -142,9 +267,11 @@ class _AllsongsState extends State<Allsongs> {
                       '${song.artist}',
                       style: const TextStyle(color: Colors.white),
                     ),
-                    trailing: const Icon(
-                      Icons.more_horiz,
-                      color: Colors.white,
+                    trailing: IconButton(
+                      icon: const Icon(Icons.playlist_add, color: Colors.white),
+                      onPressed: () {
+                        _addToPlaylist(song); // Trigger the playlist dialog
+                      },
                     ),
                   );
                 },
@@ -155,17 +282,16 @@ class _AllsongsState extends State<Allsongs> {
                 height: 130,
                 child: BottomAppBar(
                   color: const Color(0xFF001A2D),
-                  child: songs.isNotEmpty && _currentSongIndex != -1
+                  child: (songs.isNotEmpty && _currentSongIndex != -1) || audioPlayer.playing
                       ? StreamBuilder<Duration?>(
                     stream: audioPlayer.positionStream,
                     builder: (context, snapshot) {
                       final position = snapshot.data ?? Duration.zero;
                       final songDuration = audioPlayer.duration ?? Duration.zero;
-
                       return MusicPlayerWidget(
                         currentSong: context.read<SongModelProvider>().getCurrentSong() ??
                             FirestoreSongModel(
-                              id: '', // Default or placeholder ID
+                              id: '',
                               url: '',
                               title: 'Unknown Song',
                               artist: 'Unknown Artist',
@@ -191,6 +317,7 @@ class _AllsongsState extends State<Allsongs> {
       ),
     );
   }
+
   void _nextSong() {
     if (_currentSongIndex < songs.length - 1) {
       setState(() {
@@ -214,17 +341,14 @@ class _AllsongsState extends State<Allsongs> {
   void _playCurrentSong() async {
     try {
       final song = songs[_currentSongIndex];
-
-      // Get actual duration before setting the audio source
       final duration = await audioPlayer.setUrl(song.url);
-
       final mediaItem = MediaItem(
-        id: song.url, // Ensure this matches your song model's unique ID
+        id: song.url,
         album: song.album,
         title: song.title,
         artist: song.artist,
-        duration: duration ?? Duration.zero, // Use fetched duration
-        artUri: Uri.parse(song.ImageUrl), // Song image URL
+        duration: duration ?? Duration.zero,
+        artUri: Uri.parse(song.ImageUrl),
       );
 
       await audioPlayer.setAudioSource(
@@ -239,7 +363,6 @@ class _AllsongsState extends State<Allsongs> {
       print("Error playing song: $e");
     }
   }
-
 
   @override
   void dispose() {
