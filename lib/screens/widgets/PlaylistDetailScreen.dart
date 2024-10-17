@@ -8,7 +8,8 @@
   import '../../models/FireStoreSongModel.dart';
   import '../../provider/song_model_provider.dart';
   import '../../services/PlaylistService.dart';
-  import 'MusicPlayerWidget.dart';
+  import 'AllSongs.dart';
+import 'MusicPlayerWidget.dart';
   import 'Audioplayerscreenstate.dart';
 
   class PlaylistDetailScreen extends StatefulWidget {
@@ -167,10 +168,29 @@
         appBar: AppBar(
           backgroundColor: const Color(0xFF001A2D),
           title: Text(_playlistName, style: const TextStyle(color: Colors.white)), // Dynamic title
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                // Navigate to the "All Songs" screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Allsongs(), // Replace with your actual AllSongsScreen widget
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         backgroundColor: const Color(0xFF001A2D),
         body: playlistSongs.isEmpty
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+          child: Text(
+            'No songs available in this playlist',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+        )
             : ListView.builder(
           itemCount: playlistSongs.length,
           itemBuilder: (context, index) {

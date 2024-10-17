@@ -14,7 +14,9 @@ class PlaylistPage extends StatefulWidget {
 }
 
 class _PlaylistPageState extends State<PlaylistPage> {
-  List<QueryDocumentSnapshot>? playlists; // Local list of playlists
+  List<QueryDocumentSnapshot>? playlists;
+  TextEditingController _playlistNameController = TextEditingController(); // Controller for the playlist name input
+
   Future<void> _fetchPlaylistSongs(String playlistId, SongModelProvider songProvider) async {
     var playlistSnapshot = await FirebaseFirestore.instance
         .collection('songs')
@@ -34,10 +36,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
       };
     }).toList();
 
-    songProvider.loadPlaylist(playlistSongs);  // Load the songs into the provider
+    songProvider.loadPlaylist(playlistSongs);
   }
 
-  // Fetches the playlists from Firestore
   Future<void> _fetchPlaylists(String userId) async {
     var snapshot = await FirebaseFirestore.instance
         .collection('playlists')
@@ -45,19 +46,16 @@ class _PlaylistPageState extends State<PlaylistPage> {
         .get();
 
     setState(() {
-      playlists = snapshot.docs; // Store the fetched playlists locally
+      playlists = snapshot.docs;
     });
   }
 
-  // Function to delete a playlist and update the local list
   Future<void> _deletePlaylist(String playlistId) async {
     try {
       await FirebaseFirestore.instance.collection('playlists').doc(playlistId).delete();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Playlist deleted successfully!")),
       );
-
-      // Update the local list by removing the deleted playlist
       setState(() {
         playlists?.removeWhere((playlist) => playlist.id == playlistId);
       });
@@ -69,15 +67,71 @@ class _PlaylistPageState extends State<PlaylistPage> {
     }
   }
 
+  Future<void> _createPlaylist(String playlistName, String userId) async {
+    if (playlistName.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance.collection('playlists').add({
+          'name': playlistName,
+          'userId': userId,
+          'createdAt': Timestamp.now(),
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Playlist '$playlistName' created successfully!")),
+        );
+        _fetchPlaylists(userId); // Refresh playlists after creation
+      } catch (e) {
+        print("Error creating playlist: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error creating playlist")),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Playlist name cannot be empty")),
+      );
+    }
+  }
+
+  Future<void> _showCreatePlaylistDialog(String userId) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Create New Playlist'),
+          content: TextField(
+            controller: _playlistNameController,
+            decoration: InputDecoration(hintText: 'Enter playlist name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                _createPlaylist(_playlistNameController.text, userId);
+                _playlistNameController.clear(); // Clear the input after creation
+                Navigator.of(context).pop();
+              },
+              child: Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     var userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
-      _fetchPlaylists(userId); // Fetch playlists when the page loads
+      _fetchPlaylists(userId);
     }
   }
-// Show confirmation dialog before deleting
+
   Future<void> _showDeleteConfirmationDialog(String playlistId) async {
     return showDialog<void>(
       context: context,
@@ -90,14 +144,14 @@ class _PlaylistPageState extends State<PlaylistPage> {
             TextButton(
               child: Text('Cancel'),
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop();
               },
             ),
             TextButton(
               child: Text('Delete'),
               onPressed: () {
-                _deletePlaylist(playlistId);  // Call the delete method
-                Navigator.of(context).pop();  // Close the dialog after deletion
+                _deletePlaylist(playlistId);
+                Navigator.of(context).pop();
               },
             ),
           ],
@@ -119,12 +173,20 @@ class _PlaylistPageState extends State<PlaylistPage> {
               "My Playlists",
               style: TextStyle(color: Colors.white),
             ),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.add),
+                onPressed: () {
+                  _showCreatePlaylistDialog(userId!); // Show the dialog to create a new playlist
+                },
+              ),
+            ],
           ),
           backgroundColor: const Color(0xFF001A2D),
           body: userId == null
               ? Center(child: Text("User not logged in!"))
               : playlists == null
-              ? const Center(child: CircularProgressIndicator()) // Show loading indicator while fetching
+              ? const Center(child: CircularProgressIndicator())
               : playlists!.isEmpty
               ? const Center(child: Text("No playlists found."))
               : ListView.builder(
@@ -148,7 +210,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     IconButton(
                       icon: Icon(Icons.delete, color: Colors.red),
                       onPressed: () {
-                        _showDeleteConfirmationDialog(playlist.id); // Show confirmation dialog
+                        _showDeleteConfirmationDialog(playlist.id);
                       },
                     ),
                     Icon(
@@ -158,9 +220,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   ],
                 ),
                 onTap: () {
-                  // Fetch playlist songs when playlist is tapped
                   _fetchPlaylistSongs(playlist.id, songProvider);
-                  // Navigate to the selected playlist's song list
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -174,7 +234,6 @@ class _PlaylistPageState extends State<PlaylistPage> {
             },
           ),
           bottomNavigationBar: buildNavigationButtons(),
-          // Custom bottom widget showing current playing song (if any)
           bottomSheet: SafeArea(
             child: SizedBox(
               height: 130,
@@ -211,22 +270,22 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     );
                   },
                 )
-                    : const SizedBox.shrink(), // Return an empty widget if no song is playing
+                    : const SizedBox.shrink(),
               ),
-
             ),
           ),
         );
       },
     );
   }
+
   Widget buildNavigationButtons() {
     return Row(
       children: [
         Expanded(
           child: IconButton(
             onPressed: () {
-                Navigator.pushNamed(context, '/');
+              Navigator.pushNamed(context, '/');
             },
             icon: const Icon(Icons.home, size: 30, color: Colors.white),
           ),
@@ -242,17 +301,14 @@ class _PlaylistPageState extends State<PlaylistPage> {
         Expanded(
           child: IconButton(
             onPressed: () {
-              Navigator.pushNamed(context, '/liked_songs'); // Navigate to liked songs screen
+              Navigator.pushNamed(context, '/liked_songs');
             },
-            icon: const Icon(Icons.favorite_border, size: 30, color: Colors.white), // Liked songs icon
+            icon: const Icon(Icons.favorite_border, size: 30, color: Colors.white),
           ),
         ),
         Expanded(
           child: IconButton(
-            icon: const Icon(
-                Icons.library_music,
-                size: 30, color: Colors.white
-            ),
+            icon: const Icon(Icons.library_music, size: 30, color: Colors.white),
             onPressed: () {
               Navigator.push(
                 context,

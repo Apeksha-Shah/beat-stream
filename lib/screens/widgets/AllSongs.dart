@@ -73,47 +73,76 @@ class _AllsongsState extends State<Allsongs> {
           .get();
 
       // Show dialog for the user to either create a new playlist or select an existing one
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text("Add to Playlist"),
-            content: playlistsSnapshot.docs.isEmpty
-                ? const Text("You have no playlists. Create one below.")
-                : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Show existing playlists
-                ...playlistsSnapshot.docs.map((playlist) {
-                  return ListTile(
-                    title: Text(playlist['name']),
-                    onTap: () async {
-                      // Add the song to the selected playlist
-                      await _addToExistingPlaylist(playlist.id, song.id);
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-                const SizedBox(height: 10),
-                const Divider(),
-                const SizedBox(height: 10),
-                // Create a new playlist option
+      if (playlistsSnapshot.docs.isEmpty) {
+        // If there are no playlists, show a message and prompt the user to create a new one
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text("No Playlists Available"),
+              content: const Text("You have no playlists. Would you like to create a new one?"),
+              actions: [
                 TextButton(
                   onPressed: () {
                     Navigator.pop(context);
-                    _createNewPlaylist(userId, song.id);
+                    _createNewPlaylist(userId, song.id); // Create new playlist
                   },
                   child: const Text("Create New Playlist"),
                 ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Close the dialog if the user doesn't want to create one
+                  },
+                  child: const Text("Cancel"),
+                ),
               ],
-            ),
-          );
-        },
-      );
+            );
+          },
+        );
+      } else {
+        // If playlists exist, show the dialog with existing playlists
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text("Add to Playlist"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Show existing playlists
+                  ...playlistsSnapshot.docs.map((playlist) {
+                    return ListTile(
+                      title: Text(playlist['name']),
+                      onTap: () async {
+                        // Add the song to the selected playlist
+                        await _addToExistingPlaylist(playlist.id, song.id);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                  const SizedBox(height: 10),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  // Create a new playlist option
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _createNewPlaylist(userId, song.id);
+                    },
+                    child: const Text("Create New Playlist"),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      }
     } catch (e) {
       showToast(message: "Error loading playlists: $e");
     }
   }
+
+
   Future<void> _addToExistingPlaylist(String playlistId, String songId) async {
     try {
       await FirebaseFirestore.instance
